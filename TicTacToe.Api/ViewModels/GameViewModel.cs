@@ -17,6 +17,8 @@ public class GameViewModel
 
     private static List<char?[]> ToCharList(IEnumerable<State> states)
     {
-        return states.Select(state => JsonSerializer.Deserialize<char?[]>(state.Json) ?? new char?[9]).ToList();
+        return !states.Any() 
+            ? new List<char?[]>{new char?[9]}
+            : states.Select(state => JsonSerializer.Deserialize<char?[]>(state.Json) ?? new char?[9]).ToList();
     }
 }

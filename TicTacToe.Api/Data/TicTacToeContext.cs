@@ -5,9 +5,9 @@ namespace TicTacToe.Api.Data;
 
 public class TicTacToeContext : DbContext
 {
-    public DbSet<Game> ?Games { get; set; }
-    public DbSet<State> ?State { get; set; }
-    
+    public DbSet<Game> Games { get; set; } = null!;
+    public DbSet<State> States { get; set; } = null!;
+
     public TicTacToeContext(DbContextOptions<TicTacToeContext> options)
         : base(options)
     {

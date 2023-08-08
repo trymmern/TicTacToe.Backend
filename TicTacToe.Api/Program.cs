@@ -8,7 +8,8 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy(localhostCors, policy =>
     {
-        policy.WithOrigins("http://localhost:3000");
+        policy.WithOrigins("http://localhost:3000")
+            .AllowAnyHeader();
     });
 });
 builder.Services.AddEntityFrameworkNpgsql().AddDbContext<TicTacToeContext>(opt =>

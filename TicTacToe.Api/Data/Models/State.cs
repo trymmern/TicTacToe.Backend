@@ -1,4 +1,3 @@
-using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json;
 
@@ -22,5 +21,10 @@ public class State : BaseEntity
     {
         Json = JsonSerializer.Serialize(state);
     }
-    
+
+    public bool Compare(char?[] state)
+    {
+        var thisState = JsonSerializer.Deserialize<char?[]>(Json);
+        return thisState != null && thisState.Equals(state);
+    }
 }

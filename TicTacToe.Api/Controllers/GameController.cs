@@ -1,6 +1,5 @@
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
-using TicTacToe.Api.Data.Models;
 using TicTacToe.Api.Repository;
 using TicTacToe.Api.ViewModels;
 
@@ -40,8 +39,19 @@ public class GameController
     }
 
     [HttpPost("/Update")]
-    public IResult UpdateGame(int id, [FromBody] char?[] state)
+    public IResult UpdateGame(int id, [FromBody] string?[] stateStr)
     {
+        var state = new char?[9];
+        if (stateStr.Length != 9)
+        {
+            return Results.BadRequest("State array needs to have a length of exactly 9");
+        }
+
+        for (var i = 0; i < state.Length; i++)
+        {
+            if (char.TryParse(stateStr[i], out var charVal)) state[i] = charVal;
+            else state[i] = null;
+        }
         return Results.Ok(new GameViewModel(_gameRepository.UpdateGame(id, state)));
     }
 }
