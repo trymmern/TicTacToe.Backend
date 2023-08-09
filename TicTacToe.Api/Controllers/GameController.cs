@@ -19,7 +19,7 @@ public class GameController
     public IResult Get()
     {
         var games = _gameRepository.Get();
-        var gameVms = games.Select(game => new GameViewModel(game)).ToList();
+        var gameVms = games.Select(game => new GameViewModel(game)).ToList().OrderBy(g => g.Id);
 
         return Results.Ok(JsonSerializer.Serialize(gameVms));
     }
