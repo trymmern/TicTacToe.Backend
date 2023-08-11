@@ -7,7 +7,7 @@ namespace TicTacToe.Api.Controllers;
 
 [Controller]
 [Route("Games")]
-public class GameController
+public class GameController : ControllerBase
 {
     private readonly IGameRepository _gameRepository;
     
