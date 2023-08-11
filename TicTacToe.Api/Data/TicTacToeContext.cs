@@ -25,4 +25,31 @@ public class TicTacToeContext : DbContext
         });
     }
 
+    public override int SaveChanges()
+    {
+        ChangeTracker.DetectChanges();
+        var added = ChangeTracker.Entries()
+            .Where(e => e.State == EntityState.Added)
+            .Select(e => e.Entity)
+            .ToArray();
+        foreach (var e in added)
+        {
+            if (e is not IBaseEntity entity) continue;
+            entity.CreatedDate = DateTime.UtcNow;
+            entity.CreatedBy = Environment.UserName;
+        }
+
+        var modified = ChangeTracker.Entries()
+            .Where(e => e.State == EntityState.Modified)
+            .Select(e => e.Entity)
+            .ToArray();
+        foreach (var e in modified)
+        {
+            if (e is not IBaseEntity entity) continue;
+            entity.UpdatedDate = DateTime.UtcNow;
+            entity.UpdatedBy = Environment.UserName;
+        }
+
+        return base.SaveChanges();
+    }
 }
