@@ -1,5 +1,6 @@
 using System.Net.WebSockets;
 using System.Text;
+using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using TicTacToe.Api.WebSockets;
 
@@ -14,54 +15,51 @@ public class WebSocketController : ControllerBase
         WsHandler = wsHandler;
     }
     
-    [Route("/ws")]
-    public async Task Get()
-    {
-        if (HttpContext.WebSockets.IsWebSocketRequest)
-        {
-            using var webSocket = await HttpContext.WebSockets.AcceptWebSocketAsync();
-            await WsHandler.Echo(webSocket);
-        }
-        else
-        {
-            HttpContext.Response.StatusCode = StatusCodes.Status400BadRequest;
-        }
-    }
-    
     [Route("/ws/connect")]
     public async Task Connect()
     {
         if (HttpContext.WebSockets.IsWebSocketRequest)
         {
-            var curName = HttpContext.Request.Query["name"];
-            using var ws = await HttpContext.WebSockets.AcceptWebSocketAsync();
-            if (!WsHandler.Connections.Contains(ws))
+            string? userId = HttpContext.Request.Query["userId"];
+            if (userId == null)
             {
-                WsHandler.Connections.Add(ws);
+                throw new ArgumentException("A user id must be present in the query string");
             }
-
-            var stream = new StreamReader(HttpContext.Request.Body);
-            var body = await stream.ReadToEndAsync();
-            await WsHandler.Broadcast($"{curName} joined the room");
-            await WsHandler.Broadcast($"{WsHandler.Connections.Count} users connected");
+            
+            using var ws = await HttpContext.WebSockets.AcceptWebSocketAsync();
             await WsHandler.ReceiveMessage(ws,
                 async (result, buffer) =>
                 {
                     if (result.MessageType == WebSocketMessageType.Text)
                     {
-                        var message = Encoding.UTF8.GetString(buffer, 0, result.Count);
-                        await WsHandler.Broadcast($"{curName}: {message}");
+                        var jsonMsg = Encoding.UTF8.GetString(buffer, 0, result.Count);
+                        var document = JsonDocument.Parse(jsonMsg);
+                        var evt = document.RootElement.GetProperty("type").ToString();
+
+                        if (evt == EventTypes.UserEvent) await WsHandler.HandleUserEvent(document, ws);
+                        else if (evt == EventTypes.GameEvent) WsHandler.HandleGameEvent(document);
+                        else {
+                            Console.WriteLine($"Unknown event {evt}");
+                            //TODO: reply to client that sent the message, and only to them, that the event was not recognized
+                        }
                     }
                     else if (result.MessageType == WebSocketMessageType.Close || ws.State == WebSocketState.Aborted)
                     {
-                        WsHandler.Connections.Remove(ws);
-                        await WsHandler.Broadcast($"{curName} left the room");
-                        await WsHandler.Broadcast($"{WsHandler.Connections.Count} users connected");
-                        await ws.CloseAsync(result.CloseStatus.Value, 
-                            result.CloseStatusDescription,
-                            CancellationToken.None);
+                        if (WsHandler.Connections.TryGetValue(userId, out var userConnection))
+                        {
+                            
+                            WsHandler.Connections.Remove(userId);
+                            await WsHandler.Broadcast($"{userConnection.User.Name} left the room");
+                            await WsHandler.Broadcast($"{WsHandler.Connections.Count} users connected");
+                        }
+
+                        if (result.CloseStatus != null)
+                            await ws.CloseAsync(result.CloseStatus.Value,
+                                result.CloseStatusDescription,
+                                CancellationToken.None);
                     }
-                });
+                }
+            );
         }
         else
         {

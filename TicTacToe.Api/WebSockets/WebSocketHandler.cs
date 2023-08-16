@@ -1,35 +1,14 @@
 using System.Net.WebSockets;
 using System.Text;
+using System.Text.Json;
+using TicTacToe.Api.ViewModels;
 
 namespace TicTacToe.Api.WebSockets;
 
 public class WebSocketHandler
 {
-    public List<WebSocket> Connections { get; } = new();
-    
-    public async Task Echo(WebSocket webSocket)
-    {
-        var buffer = new byte[1024 * 4];
-        var receiveResult = await webSocket.ReceiveAsync(
-            new ArraySegment<byte>(buffer), CancellationToken.None);
-
-        while (!receiveResult.CloseStatus.HasValue)
-        {
-            await webSocket.SendAsync(
-                new ArraySegment<byte>(buffer, 0, receiveResult.Count),
-                receiveResult.MessageType,
-                receiveResult.EndOfMessage,
-                CancellationToken.None);
-        
-            receiveResult = await webSocket.ReceiveAsync(
-                new ArraySegment<byte>(buffer), CancellationToken.None);
-        }
-
-        await webSocket.CloseAsync(
-            receiveResult.CloseStatus.Value,
-            receiveResult.CloseStatusDescription,
-            CancellationToken.None);
-    }
+    public Dictionary<string, UserConnection> Connections { get; } = new();
+    private List<UserActivity> UserActivity { get; } = new();
 
     public async Task ReceiveMessage(WebSocket socket, Action<WebSocketReceiveResult, byte[]> handleMessage)
     {
@@ -41,21 +20,59 @@ public class WebSocketHandler
                 CancellationToken.None);
             handleMessage(result, buffer);
         }
-        
-        
     }
 
     public async Task Broadcast(string message)
     {
         var bytes = Encoding.UTF8.GetBytes(message);
-        foreach (var connection in Connections)
+        foreach (var (_, connection) in Connections)
         {
-            if (connection.State != WebSocketState.Open) continue;
+            if (connection.Connection.State != WebSocketState.Open) continue;
             var arraySegment = new ArraySegment<byte>(bytes, 0, bytes.Length);
-            await connection.SendAsync(arraySegment,
+            await connection.Connection.SendAsync(arraySegment,
                 WebSocketMessageType.Text,
                 true,
                 CancellationToken.None);
         }
+    }
+
+    public async Task HandleUserEvent(JsonDocument json, WebSocket connection)
+    {
+        var userProp = json.RootElement.GetProperty("user");
+        var user = JsonSerializer.Deserialize<User>(userProp.GetString() ??
+                                                    throw new InvalidOperationException(
+                                                        "User object needs to be present"));
+
+        if (user == null) throw new InvalidOperationException("Invalid user object in message");
+
+        var userConnection = new UserConnection { Connection = connection, User = user };
+
+        if (Connections.TryAdd(user.Id, userConnection))
+        {
+            AddJoinActivity(user);
+
+            var joinData = JsonSerializer.Serialize(new
+                { userActivity = UserActivity, eventType = EventTypes.ActivityEvent });
+            await Broadcast(joinData);
+        }
+        else
+        {
+            throw new InvalidOperationException("User already connected or could not add for some reason");
+        }
+    }
+
+    public GameViewModel HandleGameEvent(JsonDocument json)
+    {
+        throw new NotImplementedException();
+    }
+
+    private void AddJoinActivity(User user)
+    {
+        var (joinMsg, countMsg) = ("joined the room", $"{Connections.Count} users connected");
+        UserActivity.AddRange(new []
+        {
+            new UserActivity { UserId = user.Id, Username = user.Name, Message = joinMsg }, 
+            new UserActivity { Message = countMsg }
+        });
     }
 }

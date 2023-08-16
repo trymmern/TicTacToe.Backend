@@ -25,7 +25,6 @@ builder.Services.AddSingleton<WebSocketHandler>();
 var app = builder.Build();
 app.UseCors(localhostCors);
 app.MapControllers();
-
 app.UseWebSockets();
 
 app.Run();
