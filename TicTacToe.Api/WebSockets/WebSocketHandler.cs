@@ -7,6 +7,8 @@ namespace TicTacToe.Api.WebSockets;
 
 public class WebSocketHandler
 {
+    //TODO: Users need to have their own set of user activity that gets reset every time they are reconnected? ->
+    //-> Also they should not see the entire history of other users, only that which happens after they join
     public Dictionary<string, UserConnection> Connections { get; } = new();
     private List<UserActivity> UserActivity { get; } = new();
 
@@ -68,6 +70,12 @@ public class WebSocketHandler
 
     private void AddJoinActivity(User user)
     {
+        if (UserActivity.Any(ua => ua.UserId == user.Id))
+        {
+            Console.WriteLine("User is already in list");
+            return;
+        }
+        
         var (joinMsg, countMsg) = ("joined the room", $"{Connections.Count} users connected");
         UserActivity.AddRange(new []
         {
